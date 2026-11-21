@@ -7,6 +7,7 @@ in the browser. Nothing in the game is rebuilt or changed; the output is uploade
 
 usage: build_web.py <tag> <mac.zip> <out_dir>
 """
+import glob
 import io
 import json
 import os
@@ -76,8 +77,22 @@ def main(tag, mac_zip, out):
     with open(os.path.join(out, "web-game.pck"), "wb") as f:
         f.write(pck)
     sizes["game.pck"] = len(pck)
+    files = ["godot.wasm", "game.pck"]
+    # phone browsers get the same game with ETC2/ASTC textures when the release has one (release.sh uploads it before
+    # the Mac zip); the player picks it when the browser has no S3TC texture support
+    mob = glob.glob(os.path.join(os.path.dirname(os.path.abspath(mac_zip)), "*-web-mobile.pck"))
+    if mob:
+        with open(mob[0], "rb") as f:
+            mdata = f.read()
+        if mdata[:4] != b"GDPC" or struct.unpack("<4s4I", mdata[:20])[2:] != (major, minor, patch):
+            sys.exit(f"{mob[0]} isn't a Godot {engine} pack")
+        with open(os.path.join(out, "web-mobile.pck"), "wb") as f:
+            f.write(mdata)
+        sizes["mobile.pck"] = len(mdata)
+        files.append("mobile.pck")
+        print(f"mobile pack {os.path.basename(mob[0])}: {len(mdata)} bytes")
     version = re.sub(r"^[^0-9]*", "", tag)
-    build = {"tag": tag, "version": version, "engine": engine, "files": {k: sizes[k] for k in ("godot.wasm", "game.pck")}}
+    build = {"tag": tag, "version": version, "engine": engine, "files": {k: sizes[k] for k in files}}
     with open(os.path.join(out, "web-build.json"), "w") as f:
         json.dump(build, f)
     print(json.dumps(build))
