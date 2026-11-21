@@ -49,6 +49,8 @@ jobs:
         run: |
           mkdir -p dl out
           gh release download "${{ steps.rel.outputs.tag }}" --pattern '*-macOS.zip' --dir dl --clobber
+          # optional phone pack (ETC2/ASTC textures); older releases have none
+          gh release download "${{ steps.rel.outputs.tag }}" --pattern '*-web-mobile.pck' --dir dl --clobber || true
           python3 tools/web/build_web.py "${{ steps.rel.outputs.tag }}" dl/*-macOS.zip out
       - name: Upload to the release
         run: gh release upload "${{ steps.rel.outputs.tag }}" out/web-* --clobber
